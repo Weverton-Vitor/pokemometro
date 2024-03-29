@@ -19,12 +19,23 @@ defmodule Pokemometro do
   end
 
   def print_pokemon({:ok, pokemon}) do
-    IO.puts("---------- " <> String.capitalize(pokemon[:name]) <> " ----------")
+    IO.puts("---------- " <> String.capitalize(pokemon[:name]) <> " ----------\n")
     IO.puts("ID        " <> " ::: " <> Integer.to_string(pokemon[:id]))
     IO.puts("Altura (m)" <> " ::: " <> Float.to_string(pokemon[:height]) <> "m")
     IO.puts("Peso (kg) " <> " ::: " <> Float.to_string(pokemon[:weight]) <> "kg")
 
-    IO.puts("--------- Estatísticas --------")
+    IO.puts("\n--------- Estatísticas --------\n")
+
+    IO.puts("#{String.capitalize(pokemon[:name])}'s Stats:")
+
+    Enum.each(pokemon[:stats], fn {label, value} ->
+      normalized_value = value * 100 / 120
+      bar_length = round(normalized_value * 20 / 100)
+      bar = String.duplicate("#", bar_length)
+      padding_length = max(0, 16 - String.length(label))
+      padding = String.duplicate(" ", padding_length)
+      IO.puts("#{String.capitalize(label)}#{padding}: #{bar} (#{value})")
+    end)
   end
 
   def get_pokemon(name) do
