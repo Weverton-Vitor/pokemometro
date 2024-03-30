@@ -25,8 +25,16 @@ mix deps.get
 
 ### 2 Compiling
 
+You can compile executable...
+
 ```sh
 mix escript.build
+```
+
+...or you can compile in iex
+
+```sh
+iex -S mix
 ```
 
 ### 3 Run executable
