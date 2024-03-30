@@ -21,7 +21,6 @@ defmodule Pokemometro do
   end
 
   def longest(strings), do: longest_p(strings, 0)
-
   defp longest_p([], a), do: a
 
   defp longest_p([s | strings], a) do
@@ -59,10 +58,23 @@ defmodule Pokemometro do
         "#{String.capitalize(label)}#{padding}: #{bar} (#{value})"
       end)
 
+    chain =
+      Enum.reduce(pokemon[:evolution_chain], fn specie, acc ->
+        if specie == pokemon[:name] do
+          acc <> " | *" <> specie <> "*"
+        else
+          if(acc == pokemon[:name]) do
+            "*" <> acc <> "* | " <> specie
+          else
+            acc <> " | " <> specie
+          end
+        end
+      end)
+
     longest =
       longest([
         idLine
-        | [heightLine | [weightLine | [pokemon[:evolution_chain] | statsLines]]]
+        | [heightLine | [weightLine | [chain | statsLines]]]
       ])
 
     pokemonNameHeader = centralize(" " <> String.capitalize(pokemon[:name]) <> " ", longest, "-")
@@ -108,19 +120,7 @@ defmodule Pokemometro do
       HTTPoison.get(species_data["evolution_chain"]["url"])
       |> format_data()
 
-    chain = chain_to_array(evolution_chain["chain"])
-
-    Enum.reduce(chain, fn specie, acc ->
-      if specie == name do
-        acc <> " | *" <> specie <> "*"
-      else
-        if(acc == name) do
-          "*" <> acc <> "* | " <> specie
-        else
-          acc <> " | " <> specie
-        end
-      end
-    end)
+    chain_to_array(evolution_chain["chain"])
   end
 
   def format_stats(obj, []), do: obj
