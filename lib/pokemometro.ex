@@ -1,5 +1,5 @@
 defmodule Pokemometro do
-  @url "https://pokeapi.co/api/v2/pokemon/"
+  @url "https://pokeapi.co/api/v2/"
   @moduledoc """
   Documentation for `Pokemometro`.
   """
@@ -48,8 +48,6 @@ defmodule Pokemometro do
     heightLine = "Altura (m)" <> " ::: " <> Float.to_string(pokemon[:height]) <> "m"
     weightLine = "Peso (kg) " <> " ::: " <> Float.to_string(pokemon[:weight]) <> "kg"
 
-    pokemonStats = "#{String.capitalize(pokemon[:name])}'s Stats:"
-
     statsLines =
       Enum.map(pokemon[:stats], fn {label, value} ->
         normalized_value = value * 100 / 120
@@ -61,28 +59,68 @@ defmodule Pokemometro do
         "#{String.capitalize(label)}#{padding}: #{bar} (#{value})"
       end)
 
-    longest = longest([idLine | [heightLine | [weightLine | [pokemonStats | statsLines]]]])
+    longest =
+      longest([
+        idLine
+        | [heightLine | [weightLine | [pokemon[:evolution_chain] | statsLines]]]
+      ])
+
     pokemonNameHeader = centralize(" " <> String.capitalize(pokemon[:name]) <> " ", longest, "-")
     statsHeader = centralize(" Estatísticas ", longest, "-")
+    evolutionHeader = centralize(" Cadeia de Evolução ", longest, "-")
 
-    IO.puts(longest)
     IO.puts(pokemonNameHeader)
     IO.puts(idLine)
     IO.puts(heightLine)
     IO.puts(weightLine)
     IO.puts(statsHeader)
-    IO.puts(pokemonStats)
     IO.puts(Enum.join(statsLines, "\n"))
+    IO.puts(evolutionHeader)
+    IO.puts(pokemon[:evolution_chain])
   end
 
   def get_pokemon(name) do
-    HTTPoison.get(@url <> name)
-    |> format_data
-    |> filter_data
+    {:ok, pokemon} =
+      HTTPoison.get(@url <> "pokemon/" <> name)
+      |> format_data
+      |> filter_data
 
-    # |> print_pokemon
+    evolution_chain = get_evolution_chain(name)
 
-    # {:ok, %{}}
+    {:ok, Map.put(pokemon, :evolution_chain, evolution_chain)}
+  end
+
+  def chain_to_array([]), do: []
+
+  def chain_to_array(chain) when is_list(chain) do
+    [x | r] = chain
+    chain_to_array(x) ++ chain_to_array(r)
+  end
+
+  def chain_to_array(chain), do: [chain["species"]["name"] | chain_to_array(chain["evolves_to"])]
+
+  def get_evolution_chain(name) do
+    {:ok, species_data} =
+      HTTPoison.get(@url <> "pokemon-species/" <> name)
+      |> format_data
+
+    {:ok, evolution_chain} =
+      HTTPoison.get(species_data["evolution_chain"]["url"])
+      |> format_data()
+
+    chain = chain_to_array(evolution_chain["chain"])
+
+    Enum.reduce(chain, fn specie, acc ->
+      if specie == name do
+        acc <> " | *" <> specie <> "*"
+      else
+        if(acc == name) do
+          "*" <> acc <> "* | " <> specie
+        else
+          acc <> " | " <> specie
+        end
+      end
+    end)
   end
 
   def format_stats(obj, []), do: obj
@@ -98,17 +136,6 @@ defmodule Pokemometro do
     [tt["type"]["name"] | format_types(types)]
   end
 
-  @spec filter_data({:ok, nil | maybe_improper_list() | map()}) ::
-          {:ok,
-           %{
-             evolutions: <<_::24>>,
-             height: any(),
-             id: any(),
-             name: any(),
-             stats: any(),
-             type: any(),
-             weight: any()
-           }}
   def filter_data({:ok, data}) do
     {:ok,
      %{
