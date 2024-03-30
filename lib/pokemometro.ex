@@ -13,29 +13,66 @@ defmodule Pokemometro do
       :world
 
   """
-  def main(_) do
-    get_pokemon("pikachu")
+  def main(argv) do
+    {options, _, _} = OptionParser.parse(argv, switches: [help: :boolean], aliases: [h: :help])
+
+    get_pokemon(options[:name])
     |> print_pokemon
   end
 
+  def longest(strings), do: longest_p(strings, 0)
+
+  defp longest_p([], a), do: a
+
+  defp longest_p([s | strings], a) do
+    if String.length(s) > a do
+      longest_p(strings, String.length(s))
+    else
+      longest_p(strings, a)
+    end
+  end
+
+  def centralize(text, size, _) when size < length(text), do: text
+
+  def centralize(text, size, char) do
+    remains = size - String.length(text)
+    right = div(remains, 2)
+    left = remains - right
+
+    String.duplicate(char, left) <> text <> String.duplicate(char, right)
+  end
+
+  @spec print_pokemon({:ok, nil | maybe_improper_list() | map()}) :: :ok
   def print_pokemon({:ok, pokemon}) do
-    IO.puts("---------- " <> String.capitalize(pokemon[:name]) <> " ----------\n")
-    IO.puts("ID        " <> " ::: " <> Integer.to_string(pokemon[:id]))
-    IO.puts("Altura (m)" <> " ::: " <> Float.to_string(pokemon[:height]) <> "m")
-    IO.puts("Peso (kg) " <> " ::: " <> Float.to_string(pokemon[:weight]) <> "kg")
+    idLine = "ID        " <> " ::: " <> Integer.to_string(pokemon[:id])
+    heightLine = "Altura (m)" <> " ::: " <> Float.to_string(pokemon[:height]) <> "m"
+    weightLine = "Peso (kg) " <> " ::: " <> Float.to_string(pokemon[:weight]) <> "kg"
 
-    IO.puts("\n--------- Estatísticas --------\n")
+    pokemonStats = "#{String.capitalize(pokemon[:name])}'s Stats:"
 
-    IO.puts("#{String.capitalize(pokemon[:name])}'s Stats:")
+    statsLines =
+      Enum.map(pokemon[:stats], fn {label, value} ->
+        normalized_value = value * 100 / 120
+        bar_length = round(normalized_value * 20 / 100)
+        bar = String.duplicate("#", bar_length)
+        padding_length = max(0, 16 - String.length(label))
+        padding = String.duplicate(" ", padding_length)
 
-    Enum.each(pokemon[:stats], fn {label, value} ->
-      normalized_value = value * 100 / 120
-      bar_length = round(normalized_value * 20 / 100)
-      bar = String.duplicate("#", bar_length)
-      padding_length = max(0, 16 - String.length(label))
-      padding = String.duplicate(" ", padding_length)
-      IO.puts("#{String.capitalize(label)}#{padding}: #{bar} (#{value})")
-    end)
+        "#{String.capitalize(label)}#{padding}: #{bar} (#{value})"
+      end)
+
+    longest = longest([idLine | [heightLine | [weightLine | [pokemonStats | statsLines]]]])
+    pokemonNameHeader = centralize(" " <> String.capitalize(pokemon[:name]) <> " ", longest, "-")
+    statsHeader = centralize(" Estatísticas ", longest, "-")
+
+    IO.puts(longest)
+    IO.puts(pokemonNameHeader)
+    IO.puts(idLine)
+    IO.puts(heightLine)
+    IO.puts(weightLine)
+    IO.puts(statsHeader)
+    IO.puts(pokemonStats)
+    IO.puts(Enum.join(statsLines, "\n"))
   end
 
   def get_pokemon(name) do
@@ -47,9 +84,6 @@ defmodule Pokemometro do
 
     # {:ok, %{}}
   end
-
-  def list2string([], _), do: ""
-  def list2string([x | r], sep \\ ", "), do: x <> sep <> list2string(r, sep)
 
   def format_stats(obj, []), do: obj
 
@@ -83,8 +117,7 @@ defmodule Pokemometro do
        height: data["height"] / 10,
        weight: data["weight"] / 10,
        stats: format_stats(%{}, data["stats"]),
-       types: format_types(data["types"]),
-       evolutions: "sfd"
+       types: format_types(data["types"])
      }}
   end
 
